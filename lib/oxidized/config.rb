@@ -24,13 +24,12 @@ module Oxidized
       asetus.default.use_syslog    = false
       asetus.default.debug         = false
       asetus.default.threads       = 30
-      asetus.default.timeout       = 20
+      asetus.default.timeout       = 3600
       asetus.default.retries       = 3
       asetus.default.prompt        = /^([\w.@-]+[#>]\s?)$/
       asetus.default.rest          = '127.0.0.1:8888' # or false to disable
-      asetus.default.next_adds_job = false            # if true, /next adds job, so device is fetched immmeiately
-      asetus.default.vars          = {}               # could be 'enable'=>'enablePW'
-      asetus.default.groups        = {}               # group level configuration
+      asetus.default.vars          = {}             # could be 'enable'=>'enablePW'
+      asetus.default.groups        = {}             # group level configuration
       asetus.default.pid           = File.join(Oxidized::Config::Root, 'pid')
 
       asetus.default.input.default    = 'ssh, telnet'
@@ -39,6 +38,8 @@ module Oxidized
 
       asetus.default.output.default = 'file'  # file, git
       asetus.default.source.default = 'csv'   # csv, sql
+
+      asetus.default.exectime       = false
 
       asetus.default.model_map = {
         'cisco'   => 'ios',

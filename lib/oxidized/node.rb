@@ -5,21 +5,20 @@ module Oxidized
   class MethodNotFound < OxidizedError; end
   class ModelNotFound  < OxidizedError; end
   class Node
-    attr_reader :name, :ip, :model, :input, :output, :group, :auth, :prompt, :vars, :last, :repo
+    attr_reader :name, :ip, :model, :input, :output, :group, :exectime, :timeout, :auth, :prompt, :vars, :last, :repo
     attr_accessor :running, :user, :msg, :from, :stats, :retry
     alias :running? :running
     def initialize opt
       Oxidized.logger.debug 'resolving DNS for %s...' % opt[:name]
-      # remove the prefix if an IP Address is provided with one as IPAddr converts it to a network address.
-      ip_addr, _ = opt[:ip].to_s.split("/")
-      Oxidized.logger.debug 'IPADDR %s' % ip_addr.to_s
       @name           = opt[:name]
-      @ip             = IPAddr.new(ip_addr).to_s rescue nil
+      @ip             = IPAddr.new(opt[:ip]).to_s rescue nil
       @ip           ||= Resolv.new.getaddress @name
       @group          = opt[:group]
       @input          = resolve_input opt
       @output         = resolve_output opt
       @model          = resolve_model opt
+      @exectime       = resolve_exectime opt # Shinka mod 
+      @timeout        = resolve_timeout opt # Shinka mod
       @auth           = resolve_auth opt
       @prompt         = resolve_prompt opt
       @vars           = opt[:vars]
@@ -37,9 +36,10 @@ module Oxidized
         # don't try input if model is missing config block, we may need strong config to class_name map
         cfg_name = input.to_s.split('::').last.downcase
         next unless @model.cfg[cfg_name] and not @model.cfg[cfg_name].empty?
+        # next unless @model.cfg[cfg_name] and not @model.cfg[cfg_name].empty? and not in_time? @exectime
         @model.input = input = input.new
         if config=run_input(input)
-          Oxidized.logger.debug "lib/oxidized/node.rb: #{input.class.name} ran for #{name} successfully"
+          Oxidized.logger.debug "lib/oxidized/node.rb: #{input.class.name} ran for #{name} successfully (exectime: #{exectime})"
           status = :success
           break
         else
@@ -124,6 +124,23 @@ module Oxidized
       @retry = 0
     end
 
+    def in_time?(exectime = nil)
+      exectime = exectime.nil? ? @exectime : exectime
+      if exectime
+        now = Time.now
+        timespan = (now >= exectime) ? now - exectime : exectime - now
+        # Oxidized.logger.debug "EXECTIME: This node #{self.name} is configured to be run around #{exectime.to_s}"
+        # Are we max 5 minutes around the scheduled time ?
+        timespan.round <= (60 * 5)
+      else
+        true
+      end
+    end
+
+    def exectime?
+      !!@exectime
+    end
+
     private
 
     def resolve_prompt opt
@@ -156,6 +173,10 @@ module Oxidized
       Oxidized.mgr.output[output]
     end
 
+    def resolve_timeout opt
+      resolve_key :timeout, opt, Oxidized.config.timeout
+    end
+
     def resolve_model opt
       model = resolve_key :model, opt
       if not Oxidized.mgr.model[model]
@@ -163,6 +184,18 @@ module Oxidized
         Oxidized.mgr.add_model model or raise ModelNotFound, "#{model} not found for node #{ip}"
       end
       Oxidized.mgr.model[model].new
+    end
+
+    # Shinka - exectime
+    def resolve_exectime opt
+      exectime = resolve_key :exectime, opt
+      now = Time.now
+      if !exectime
+        !!exectime
+      else
+        ext = Time.at(exectime) # We recieve only hh:mm:ss
+        ets = Time.new(now.year, now.month, now.day, ext.hour, ext.min, ext.sec)
+      end
     end
 
     def resolve_repo opt

@@ -3,9 +3,8 @@ module Oxidized
   require 'oxidized/jobs'
   class Worker
     def initialize nodes
-      @nodes      = nodes
-      @jobs       = Jobs.new(Oxidized.config.threads, Oxidized.config.interval, @nodes)
-      @nodes.jobs = @jobs
+      @nodes   = nodes
+      @jobs    = Jobs.new(Oxidized.config.threads, Oxidized.config.interval, @nodes)
       Thread.abort_on_exception = true
     end
 
@@ -18,6 +17,9 @@ module Oxidized
         Oxidized.logger.debug "lib/oxidized/worker.rb: Jobs #{@jobs.size}, Want: #{@jobs.want}"
         # ask for next node in queue non destructive way
         nextnode = @nodes.first
+        # lastnode = @nodes.last
+        # Oxidized.logger.debug "Alors voici #{nextnode.name} avec #{nextnode.exectime} (#{nextnode.class})"
+        # Oxidized.logger.debug "Et voici #{lastnode.name} avec #{nextnode.exectime} (#{nextnode.class})"
         unless nextnode.last.nil?
           # Set unobtainable value for 'last' if interval checking is disabled
           last = Oxidized.config.interval == 0 ? Time.now.utc + 10 : nextnode.last.end
@@ -25,7 +27,15 @@ module Oxidized
         end
         # shift nodes and get the next node
         node = @nodes.get
+        next unless node.in_time?
         node.running? ? next : node.running = true
+        # if !node.in_time?
+        #   Oxidized.logger.debug "EXECTIME: This node #{node.name} should run around #{node.exectime.to_s}"
+        #   next;
+        # else
+        #   Oxidized.logger.debug "EXECTIME: This node #{node.name} is set to run now"
+        # end
+        # unless node.in_time? do next
         @jobs.push Job.new node
         Oxidized.logger.debug "lib/oxidized/worker.rb: Added #{node.name} to the job queue"
       end
