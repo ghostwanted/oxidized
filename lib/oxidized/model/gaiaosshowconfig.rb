@@ -1,4 +1,4 @@
-class GaiaOS < Oxidized::Model
+class GaiaOSShowConfig < Oxidized::Model
 
   # CheckPoint - Gaia OS Model
   

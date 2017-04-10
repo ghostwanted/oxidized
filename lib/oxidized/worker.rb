@@ -13,31 +13,37 @@ module Oxidized
       @jobs.delete_if { |job| ended << job if not job.alive? }
       ended.each      { |job| process job }
       @jobs.work
-      while @jobs.size < @jobs.want
+      # Shinka hack : if interval is set to 0, handle scheduled time
+      if Oxidized.config.interval == 0
+        Oxidized.logger.debug "lib/oxidized/worker.rb: interval is disabled - get nodes in time"
         Oxidized.logger.debug "lib/oxidized/worker.rb: Jobs #{@jobs.size}, Want: #{@jobs.want}"
-        # ask for next node in queue non destructive way
-        nextnode = @nodes.first
-        # lastnode = @nodes.last
-        # Oxidized.logger.debug "Alors voici #{nextnode.name} avec #{nextnode.exectime} (#{nextnode.class})"
-        # Oxidized.logger.debug "Et voici #{lastnode.name} avec #{nextnode.exectime} (#{nextnode.class})"
-        unless nextnode.last.nil?
-          # Set unobtainable value for 'last' if interval checking is disabled
-          last = Oxidized.config.interval == 0 ? Time.now.utc + 10 : nextnode.last.end
-          break if last + Oxidized.config.interval > Time.now.utc
+        @nodes.each do |nextnode|
+          if nextnode.in_time?
+            node = @nodes.get_in_time nextnode
+            node.running? ? next : node.running = true
+            if @jobs.size < @jobs.want
+              @jobs.push Job.new node
+              Oxidized.logger.debug "lib/oxidized/worker.rb: Added #{node.name} to the job queue"
+            end
+          end
         end
-        # shift nodes and get the next node
-        node = @nodes.get
-        next unless node.in_time?
-        node.running? ? next : node.running = true
-        # if !node.in_time?
-        #   Oxidized.logger.debug "EXECTIME: This node #{node.name} should run around #{node.exectime.to_s}"
-        #   next;
-        # else
-        #   Oxidized.logger.debug "EXECTIME: This node #{node.name} is set to run now"
-        # end
-        # unless node.in_time? do next
-        @jobs.push Job.new node
-        Oxidized.logger.debug "lib/oxidized/worker.rb: Added #{node.name} to the job queue"
+      else
+        while @jobs.size < @jobs.want
+          Oxidized.logger.debug "lib/oxidized/worker.rb: Jobs #{@jobs.size}, Want: #{@jobs.want}"
+          # ask for next node in queue non destructive way, and if interval is disabled, work only with intime nodes
+          nextnode = @nodes.first
+
+          unless nextnode.last.nil?
+            # Set unobtainable value for 'last' if interval checking is disabled
+            last = Oxidized.config.interval == 0 ? Time.now.utc + 10 : nextnode.last.end
+            break if last + Oxidized.config.interval > Time.now.utc
+          end
+          # shift nodes and get the next node
+          node = @nodes.get
+          node.running? ? next : node.running = true
+          @jobs.push Job.new node
+          Oxidized.logger.debug "lib/oxidized/worker.rb: Added #{node.name} to the job queue"
+        end
       end
       Oxidized.logger.debug("lib/oxidized/worker.rb: #{@jobs.size} jobs running in parallel") unless @jobs.empty?
     end
@@ -80,6 +86,5 @@ module Oxidized
     rescue NodeNotFound
       Oxidized.logger.warn "#{node.name} not found, removed while collecting?"
     end
-
   end
 end

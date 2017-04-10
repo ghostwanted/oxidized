@@ -1,4 +1,4 @@
-class GaiaOS < Oxidized::Model
+class GaiaOSBackupLight < Oxidized::Model
 
   # CheckPoint - Gaia OS Model
   
@@ -12,7 +12,7 @@ class GaiaOS < Oxidized::Model
   cmd :all do |cfg|
     cfg = cfg.each_line.to_a[1..-2].join
   end
-
+  
   cmd :secret do |cfg|
     cfg.gsub! /^(set expert-password-hash ).*/, '\1<EXPERT PASSWORD REMOVED>'
     cfg.gsub! /^(set user \S+ password-hash ).*/,'\1<USER PASSWORD REMOVED>'
@@ -23,23 +23,47 @@ class GaiaOS < Oxidized::Model
     cfg
   end
 
-  cmd 'show asset all' do |cfg|
+  cmd 'clish -c "show asset all"' do |cfg|
     comment cfg
   end
 
-  cmd 'show version all' do |cfg|
+  cmd 'clish -c "show version all"' do |cfg|
     comment cfg
   end
 
-  cmd 'show configuration' do |cfg|
+  cmd 'clish -c "show configuration"' do |cfg|
     cfg.gsub! /^# Exported by \S+ on .*/, '# '
     cfg
   end
 
-  cfg :ssh do
-    # User shell must be /etc/cli.sh
-    post_login 'set clienv rows 0'
-    pre_logout 'exit'
+  cmd 'cat $FWDIR/boot/modules/fwkern.conf' do |cfg|
+    comment cfg
   end
 
+  cmd 'cat $PPKDIR/boot/modules/simkern.conf' do |cfg|
+    comment cfg
+  end
+
+  cfg :ssh do
+    if vars :enable
+      post_login do
+        send "expert\n"
+        cmd vars(:enable)
+	send "TMOUT=0\n"
+      end
+    end  
+    pre_logout do
+      filename = @node.name
+      filename = filename.gsub(/[^0-9A-Za-z.\-]/, '')
+      filename.downcase!
+      filename += '_addbackup_'
+      filename += Time.now.strftime('%Y%m%d%H%M%S')
+      filename
+      cmd "backup -f #{filename}.tgz", /^.*\[y\]\?\s?$/
+      cmd "y"
+      send "find /var/log/CPbackup/backups/*\".tgz\" -mtime +3 -exec rm {} \\;\n"
+      send "exit\n"
+    end
+    pre_logout 'exit'
+  end
 end

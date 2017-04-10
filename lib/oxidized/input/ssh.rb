@@ -18,6 +18,7 @@ module Oxidized
 
     def connect node
       @node        = node
+      @timeout     = node.timeout
       @output      = ''
       @pty_options = { term: "vt100" }
       @node.model.cfg['ssh'].each { |cb| instance_exec(&cb) }
@@ -29,7 +30,7 @@ module Oxidized
       end
       ssh_opts = {
         :port => port.to_i,
-        :password => @node.auth[:password], :timeout => Oxidized.config.timeout,
+        :password => @node.auth[:password], :timeout => node.timeout,
         :paranoid => secure,
         :auth_methods => %w(none publickey password keyboard-interactive),
         :number_of_password_prompts => 0,
@@ -137,7 +138,7 @@ module Oxidized
     def expect *regexps
       regexps = [regexps].flatten
       Oxidized.logger.debug "lib/oxidized/input/ssh.rb: expecting #{regexps.inspect} at #{node.name}"
-      Timeout::timeout(Oxidized.config.timeout) do
+      Timeout::timeout(@timeout) do
         @ssh.loop(0.1) do
           sleep 0.1
           match = regexps.find { |regexp| @output.match regexp }

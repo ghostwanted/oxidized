@@ -6,8 +6,9 @@ module Oxidized
   class ModelNotFound  < OxidizedError; end
   class Node
     attr_reader :name, :ip, :model, :input, :output, :group, :exectime, :timeout, :auth, :prompt, :vars, :last, :repo
-    attr_accessor :running, :user, :msg, :from, :stats, :retry
+    attr_accessor :running, :is_in_time, :user, :msg, :from, :stats, :retry
     alias :running? :running
+    alias :is_in_time? :is_in_time
     def initialize opt
       Oxidized.logger.debug 'resolving DNS for %s...' % opt[:name]
       @name           = opt[:name]
@@ -91,6 +92,8 @@ module Oxidized
         :ip        => @ip,
         :group     => @group,
         :model     => @model.class.to_s,
+        :exectime  => @exectime,
+        :timeout   => @timeout,
         :last      => nil,
         :vars      => @vars,
       }
@@ -127,12 +130,14 @@ module Oxidized
     def in_time?(exectime = nil)
       exectime = exectime.nil? ? @exectime : exectime
       if exectime
+        etime = Time.parse(exectime)
+        # Oxidized.logger.debug "EXECTIME: This node #{self.name} is configured to be run around #{etime.to_s}"
         now = Time.now
-        timespan = (now >= exectime) ? now - exectime : exectime - now
-        # Oxidized.logger.debug "EXECTIME: This node #{self.name} is configured to be run around #{exectime.to_s}"
+        timespan = (now >= etime) ? now - etime : etime - now
         # Are we max 5 minutes around the scheduled time ?
-        timespan.round <= (60 * 5)
+        timespan.round <= 2
       else
+        # Oxidized.logger.debug "EXECTIME: This node #{self.name} is configured to be run at anytime"
         true
       end
     end
@@ -189,12 +194,11 @@ module Oxidized
     # Shinka - exectime
     def resolve_exectime opt
       exectime = resolve_key :exectime, opt
-      now = Time.now
       if !exectime
         !!exectime
       else
-        ext = Time.at(exectime) # We recieve only hh:mm:ss
-        ets = Time.new(now.year, now.month, now.day, ext.hour, ext.min, ext.sec)
+        # Oxidized.logger.debug "EXECTIME : #{exectime.to_s}"
+        Time.at(exectime).strftime("%H:%M:%S")
       end
     end
 

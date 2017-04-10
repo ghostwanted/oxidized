@@ -85,6 +85,12 @@ module Oxidized
       end
     end
 
+    def get_in_time node
+      with_lock do
+        node
+      end
+    end
+
     # @param node node whose index number in Nodes to find
     # @return [Fixnum] index number of node in Nodes
     def find_node_index node
@@ -107,6 +113,10 @@ module Oxidized
       yield_node_output(node_name) do |node, output|
         output.get_diff node, group, oid1, oid2
       end
+    end
+
+    def in_time
+      Nodes.new :nodes => select { |node| node.in_time? }
     end
 
     private

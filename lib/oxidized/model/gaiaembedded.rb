@@ -1,4 +1,4 @@
-class GaiaOS < Oxidized::Model
+class GaiaEmbedded < Oxidized::Model
 
   # CheckPoint - Gaia OS Model
   
@@ -23,22 +23,14 @@ class GaiaOS < Oxidized::Model
     cfg
   end
 
-  cmd 'show asset all' do |cfg|
-    comment cfg
-  end
-
-  cmd 'show version all' do |cfg|
-    comment cfg
-  end
-
-  cmd 'show configuration' do |cfg|
+  cmd 'show config' do |cfg|
     cfg.gsub! /^# Exported by \S+ on .*/, '# '
     cfg
   end
 
   cfg :ssh do
     # User shell must be /etc/cli.sh
-    post_login 'set clienv rows 0'
+    # post_login 'set clienv rows 0'
     pre_logout 'exit'
   end
 
